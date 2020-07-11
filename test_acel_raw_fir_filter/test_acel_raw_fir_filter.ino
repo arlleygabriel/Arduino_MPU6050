@@ -1,6 +1,9 @@
 #include <Wire.h>
 #include <I2Cdev.h>
 int16_t acc_x, acc_y, acc_z;
+float Oldacc_x=0, Oldacc_y=0, Oldacc_z=0;
+float Nacc_x, Nacc_y, Nacc_z;
+
 
 void setup() {
   Wire.begin();                                                        //Start I2C as master
@@ -8,20 +11,22 @@ void setup() {
   pinMode(13, OUTPUT);                                                 //Set output 13 (LED) as output
   setup_mpu_6050_registers();                                          //Setup the registers of the MPU-6050 (500dfs / +/-8g) and start the gyro
   digitalWrite(13, HIGH);                                              //Set digital output 13 high to indicate startup
-  setXAccelOffset(-5293);
-  setYAccelOffset(-3033);
-  setZAccelOffset(1515);
+  setXAccelOffset(-5251);
+  setYAccelOffset(-3049);
+  setZAccelOffset(1517);
 }
 
 void loop() {
 
   read_mpu_6050_data();
-  Serial.print("EIXO X: ");
-  Serial.print(convert_int16_to_str(acc_x)); 
-  Serial.print(" EIXO Y: ");
-  Serial.print(convert_int16_to_str(acc_y)); 
-  Serial.print(" EIXO Z: ");
-  Serial.println(convert_int16_to_str(acc_z)); 
+  Nacc_x = 0.90*Oldacc_x + 0.1*acc_x;
+  //   y[n] = a*x[n-1] + b*x[n]    a + b = 1
+  Oldacc_x = Nacc_x;
+  Serial.print(acc_x);
+  Serial.print(" ");
+  Serial.println(Nacc_x);
+  delay(5);
+  
 }
 
 
@@ -49,12 +54,18 @@ void setup_mpu_6050_registers(){
   Wire.write(0x00);                                                    //Set the requested starting register
   Wire.endTransmission();                                              //End the transmission
   Wire.beginTransmission(0x68);                                        //Start communicating with the MPU-6050
+  
   Wire.write(0x1C);                                                    //Send the requested starting register
-  //Wire.write(0x18);                                                    //Set the requested starting register +-16g
-  Wire.write(0x11);                                                    //Set the requested starting register +- 8g
+  Wire.write(0x18);                                                    //Set the requested starting register +-16g
+  //Wire.write(0x11);                                                    //Set the requested starting register +- 8g
   //Wire.write(0x8);                                                    //Set the requested starting register +- 4g
   //Wire.write(0x0);                                                    //Set the requested starting register +- 2g
-  Wire.endTransmission();                                              //End the transmission
+  Wire.endTransmission();                                               //End the transmission
+  
+  Wire.beginTransmission(0x68);
+  Wire.write(0x1A);                                                     // Reg_Map page 6 DLPF (3 Register Map Add(Dec.)26 (26=1A)
+  Wire.write(0x06);                                               // Setting the filter to 6 - Register Map last 3 bits (or 0b00000010 for 2)
+  Wire.endTransmission();
 }
 
 void setXAccelOffset(int16_t offset) {
